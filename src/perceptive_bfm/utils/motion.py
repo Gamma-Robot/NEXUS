@@ -377,6 +377,7 @@ def create_motion_dataset_from_files(
     num_workers: int = 1,
     _source_protection: _SourceProtection | None = None,
     _schema_cache: _SchemaCache | None = None,
+    _validate_clip: Callable[[str, int, float], None] | None = None,
 ) -> None:
     """Pack discovered files with bounded parallel reads in sorted source order."""
     if not source_files:
@@ -433,6 +434,8 @@ def create_motion_dataset_from_files(
             )
 
         length = len(qpos)
+        if _validate_clip is not None:
+            _validate_clip(source_path, length, clip_fps)
         root_pos_w = qpos[:, :3]
         root_quat_w = qpos[:, 3:7]
         clip_joint_pos = qpos[:, 7:]
