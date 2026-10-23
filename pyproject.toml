@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "perceptive_bfm"
+version = "0.1.0"
+description = "Perceptive whole-body control for terrain-adaptive humanoid teleoperation"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "terrain-motion-adaptation",
+    "mjlab==1.5.2",
+    "rsl-rl-lib==5.4.0",
+    "tensordict",
+    "torch>=2.7.0",
+    "torchvision>=0.5.0",
+    "opencv-python",
+    "loguru",
+    "typing-extensions",
+    "wandb",
+    "tyro",
+    "torchrunx>=0.3.4",
+    "onnx",
+]
+
+[project.entry-points."mjlab.tasks"]
+perceptive_bfm = "perceptive_bfm.tasks"
+
+[project.optional-dependencies]
+dev = ["black", "ruff", "pytest", "pre-commit"]
+
+[dependency-groups]
+docs = ["sphinx>=8,<9", "myst-parser>=5,<6", "sphinx-book-theme>=1.1,<2"]
+
+[tool.setuptools]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["perceptive_bfm*"]
+
+[tool.uv.sources]
+terrain-motion-adaptation = { path = "terrain_motion_adaptation", editable = true }
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["datasets", "logs"]
+
+[tool.setuptools.package-data]
+perceptive_bfm = [
+    "asset_zoo/robots/unitree_g1/xmls/g1.xml",
+    "asset_zoo/robots/unitree_g1/xmls/assets/*.STL",
+]
+
+[tool.uv.dependency-groups]
+docs = { requires-python = ">=3.11" }

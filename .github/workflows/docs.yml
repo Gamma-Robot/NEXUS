@@ -1,0 +1,69 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "resources/**"
+      - ".github/workflows/docs.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".python-version"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "resources/**"
+      - ".github/workflows/docs.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".python-version"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: Build public documentation
+        run: uv run --locked --only-group docs sphinx-build -b html -W --keep-going docs docs/_build/html
+      - name: Upload Pages artifact
+        if: >-
+          github.repository == 'Gamma-Robot/NEXUS' &&
+          github.event.repository.visibility == 'public' &&
+          github.ref == 'refs/heads/main' &&
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/_build/html
+
+  deploy:
+    if: >-
+      github.repository == 'Gamma-Robot/NEXUS' &&
+      github.event.repository.visibility == 'public' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Deploy documentation
+        id: deployment
+        uses: actions/deploy-pages@v4

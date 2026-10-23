@@ -1,0 +1,14 @@
+/datasets/
+/dataset/
+/logs/
+/wandb/
+/.superpowers/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+/docs/_build/

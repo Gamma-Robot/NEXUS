@@ -1,0 +1,739 @@
+/* Shared typography, navigation and home-page layout for NEXUS documentation. */
+@font-face {
+  font-family: "Nexus Inter";
+  src: url("../fonts/inter-latin.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --pst-font-family-base: "Nexus Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --pst-font-family-heading: var(--pst-font-family-base);
+  --pst-font-family-monospace: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --pst-article-max-width: 82ch;
+  --pst-sidebar-font-size: 0.84rem;
+  --pst-sidebar-font-size-mobile: 0.94rem;
+}
+
+html[data-theme="light"] {
+  --pst-color-primary: #0064d6;
+  --pst-color-link: #0064d6;
+  --pst-color-text-base: #202124;
+  --pst-color-text-muted: #656570;
+  --pst-color-background: #ffffff;
+  --pst-color-on-background: #fafafb;
+  --pst-color-surface: #f5f5f7;
+  --pst-color-border: #e5e5ea;
+  --nexus-hover: #edf4fd;
+  --nexus-code: #f7f7f9;
+  --nexus-button: #0064d6;
+  --nexus-button-text: #ffffff;
+  --nexus-image-edge: rgb(255 255 255 / 65%);
+  --nexus-image-shadow: 0 3px 8px rgb(24 35 45 / 8%), 0 16px 32px rgb(24 35 45 / 16%);
+}
+
+html[data-theme="dark"] {
+  --pst-color-primary: #91bdff;
+  --pst-color-link: #91bdff;
+  --pst-color-text-base: #ededf1;
+  --pst-color-text-muted: #a8a8b3;
+  --pst-color-background: #16171a;
+  --pst-color-on-background: #1a1b1f;
+  --pst-color-surface: #222329;
+  --pst-color-border: #34353d;
+  --nexus-hover: #202e44;
+  --nexus-code: #1f2026;
+  --nexus-button: #91bdff;
+  --nexus-button-text: #101d31;
+  --nexus-image-edge: rgb(255 255 255 / 30%);
+  --nexus-image-shadow: 0 3px 8px rgb(0 0 0 / 20%), 0 16px 32px rgb(0 0 0 / 35%);
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.014em;
+}
+
+.bd-page-width {
+  max-width: 1640px;
+}
+
+.bd-article {
+  line-height: 1.8;
+  padding-top: 1.6rem;
+  padding-bottom: 2rem;
+}
+
+.bd-article p, .bd-article li {
+  text-wrap: pretty;
+}
+
+.bd-article h1, .bd-article h2, .bd-article h3 {
+  text-wrap: balance;
+}
+
+.bd-article h1 {
+  font-size: clamp(2rem, 2.65vw, 2.65rem);
+  font-weight: 650;
+  line-height: 1.16;
+  letter-spacing: -0.05em;
+  margin: 0 0 1.5rem;
+}
+
+.bd-article h2 {
+  font-size: 1.55rem;
+  font-weight: 620;
+  line-height: 1.25;
+  letter-spacing: -0.035em;
+  margin: 3.1rem 0 1.1rem;
+}
+
+.bd-article h3 {
+  font-size: 1.1rem;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+  margin-top: 1.8rem;
+}
+
+.bd-article a {
+  text-underline-offset: 0.22em;
+}
+
+.bd-article a.headerlink {
+  font-size: 0.65em;
+  margin-left: 0.35em;
+}
+
+.bd-article :not(pre) > code {
+  font-size: 0.84em;
+  overflow-wrap: anywhere;
+  border-radius: 4px;
+  padding: 0.12em 0.3em;
+}
+
+.bd-article .highlight {
+  border: 1px solid var(--pst-color-border);
+  border-radius: 10px;
+  margin: 1.2rem 0 1.7rem;
+  overflow: hidden;
+}
+
+.bd-article .highlight pre {
+  font-size: 0.79rem;
+  line-height: 1.8;
+  padding: 1.1rem 1.3rem;
+  margin: 0;
+  overflow-x: auto;
+}
+
+.bd-article .highlight pre code {
+  overflow-wrap: normal;
+}
+
+.bd-article div.literal-block-wrapper {
+  margin: 1.1rem 0;
+}
+
+.bd-article button.copybtn {
+  border-radius: 5px;
+}
+
+.bd-article .admonition {
+  box-shadow: none;
+  border-radius: 8px;
+  font-size: 0.91rem;
+}
+
+/* Keep technical tables compact enough for long paths and command arguments. */
+.bd-article .table-wrapper {
+  overflow-x: auto;
+  margin: 1.2rem 0 1.7rem;
+}
+
+.bd-article table {
+  font-size: 0.85rem;
+  line-height: 1.65;
+  width: 100%;
+}
+
+.bd-article table th {
+  font-size: 0.79rem;
+  font-weight: 650;
+  background: var(--pst-color-surface);
+}
+
+.bd-article table th, .bd-article table td {
+  padding: 0.85rem 0.9rem;
+  vertical-align: top;
+  border-color: var(--pst-color-border);
+}
+
+.bd-article table td p, .bd-article table th p {
+  margin-bottom: 0;
+}
+
+.bd-article figure.doc-figure {
+  margin: 1.8rem 0 2rem;
+}
+
+.bd-article figure.doc-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #fff;
+  border: 1px solid var(--pst-color-border);
+  border-radius: 12px;
+}
+
+.bd-article figure.doc-figure figcaption {
+  font-size: 0.76rem;
+  line-height: 1.65;
+  color: var(--pst-color-text-muted);
+  margin-top: 0.8rem;
+  text-align: left;
+}
+
+/* Primary navigation groups pages; the secondary sidebar holds page sections. */
+.bd-sidebar-primary {
+  background: var(--pst-color-on-background);
+  border-right: 1px solid var(--pst-color-border);
+  box-shadow: none;
+}
+
+.bd-sidebar-primary .sidebar-primary-items__start {
+  padding-top: 1.6rem;
+}
+
+.bd-sidebar-primary .nexus-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  margin: 0.25rem 0 1.15rem;
+  padding: 0.2rem 0.6rem;
+  text-decoration: none;
+}
+
+.nexus-brand-name {
+  display: inline-flex;
+  align-items: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.045em;
+  color: var(--pst-color-text-base);
+}
+
+.nexus-brand-caption {
+  color: var(--pst-color-text-muted);
+  font-size: 0.88rem;
+  font-weight: 450;
+  letter-spacing: -0.01em;
+}
+
+.bd-sidebar-primary .search-button-field {
+  border: 1px solid var(--pst-color-border);
+  border-radius: 8px;
+  background: var(--pst-color-background);
+  box-shadow: none;
+  font-size: 0.77rem;
+  min-height: 38px;
+  padding: 0.55rem 0.65rem;
+  margin-bottom: 0.9rem;
+}
+
+.bd-sidebar-primary .search-button__kbd-shortcut {
+  font-size: 0.65rem;
+}
+
+.bd-sidebar-primary .bd-links {
+  padding-top: 0.25rem;
+}
+
+.bd-sidebar-primary .bd-links .caption {
+  margin: 1.6rem 0 0.5rem;
+  padding: 0 0.65rem;
+  font-size: 0.64rem;
+  font-weight: 650;
+  line-height: 1.5;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--pst-color-text-muted);
+}
+
+.bd-sidebar-primary .bd-sidenav {
+  margin-bottom: 0;
+}
+
+.bd-sidebar-primary .bd-sidenav li > a {
+  display: block;
+  border: 0;
+  border-radius: 7px;
+  margin: 2px 0;
+  padding: 0.5rem 0.65rem;
+  line-height: 1.5;
+  font-size: 0.81rem;
+  font-weight: 450;
+  color: var(--pst-color-text-base);
+}
+
+.bd-sidebar-primary .bd-sidenav li > a:hover {
+  background: var(--pst-color-surface);
+  text-decoration: none;
+}
+
+.bd-sidebar-primary .bd-sidenav li.current > a, .bd-sidebar-primary .bd-sidenav li.active > a {
+  background: var(--nexus-hover);
+  color: var(--pst-color-primary);
+  font-weight: 600;
+  border: 0;
+  box-shadow: none;
+}
+
+.bd-sidebar-secondary {
+  border-left: 1px solid var(--pst-color-border);
+  font-size: 0.76rem;
+}
+
+.bd-sidebar-secondary .bd-toc {
+  margin-top: 1.25rem;
+}
+
+.bd-sidebar-secondary .toc-h2 {
+  font-size: 0.73rem;
+}
+
+.bd-sidebar-secondary .onthispage {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.bd-header-article {
+  border-bottom: 1px solid var(--pst-color-border);
+  padding-bottom: 0.4rem;
+}
+
+.bd-header-article .breadcrumb {
+  font-size: 0.74rem;
+  color: var(--pst-color-text-muted);
+  align-items: center;
+}
+
+.bd-header-article .breadcrumb a {
+  color: var(--pst-color-text-muted);
+}
+
+.article-header-buttons .btn {
+  border-radius: 6px;
+}
+
+.bd-footer-content {
+  border-top: 1px solid var(--pst-color-border);
+  font-size: 0.73rem;
+  padding-top: 1.1rem;
+  color: var(--pst-color-text-muted);
+}
+
+.component-author a, .component-author a:visited {
+  color: inherit;
+  text-decoration: none;
+}
+
+.component-author a:hover, .component-author a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+/* Home page: the project, optimized motion results, then practical entry points. */
+.bd-article > section#nexus > h1 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.home-intro {
+  padding: 1.3rem 0 2.8rem;
+}
+
+.home-eyebrow {
+  font-size: 0.76rem;
+  line-height: 1.4;
+  font-weight: 650;
+  color: var(--pst-color-text-muted);
+  letter-spacing: 0.16em;
+  margin: 0 0 1.3rem;
+}
+
+.bd-article h2.home-title {
+  font-size: clamp(2.75rem, 5vw, 4.6rem);
+  line-height: 1.04;
+  letter-spacing: -0.055em;
+  font-weight: 650;
+  margin: 0 0 1.6rem;
+  text-wrap: initial;
+}
+
+.home-title > span {
+  color: var(--pst-color-text-muted);
+}
+
+.home-lead {
+  font-size: 1rem;
+  line-height: 1.75;
+  max-width: 42rem;
+  color: var(--pst-color-text-muted);
+  margin: 0 0 1.6rem;
+}
+
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.home-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  font-weight: 550;
+  text-decoration: none;
+}
+
+.home-button-primary, .home-button-primary:visited {
+  background: var(--nexus-button);
+  color: var(--nexus-button-text);
+}
+
+.home-button-primary:hover, .home-button-primary:visited:hover {
+  color: var(--nexus-button-text);
+  text-decoration: none;
+  filter: brightness(1.08);
+}
+
+.home-text-link {
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.home-text-link span {
+  margin-left: 0.4rem;
+}
+
+.bd-article figure.home-adaptation {
+  margin: 0 0 2.5rem;
+}
+
+.home-terrain-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.home-terrain-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.home-terrain-label {
+  color: var(--pst-color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 550;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.home-terrain-column img {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  transition: transform 240ms cubic-bezier(0.2, 0.65, 0.3, 1), box-shadow 240ms ease;
+}
+
+.home-adaptation figcaption {
+  margin-top: 0.85rem;
+  color: var(--pst-color-text-muted);
+  font-size: 0.76rem;
+  line-height: 1.65;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-terrain-column img:hover {
+    z-index: 1;
+    transform: translateY(-3px) scale(1.025);
+    box-shadow: 0 0 0 1px var(--nexus-image-edge), var(--nexus-image-shadow);
+  }
+}
+
+.home-workflow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.6rem;
+  margin: 1.6rem 0 3rem;
+}
+
+.home-workflow > a, .home-workflow > a:visited, .home-workflow > a:visited:hover {
+  color: var(--pst-color-text-base);
+  text-decoration: none;
+  border-top: 1px solid var(--pst-color-border);
+  padding-top: 1.35rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-step {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  color: var(--pst-color-text-muted);
+}
+
+.home-workflow h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  margin: 1rem 0 0.7rem;
+}
+
+.home-workflow p {
+  color: var(--pst-color-text-muted);
+  font-size: 0.84rem;
+  line-height: 1.75;
+  margin-bottom: 1rem;
+}
+
+.home-route {
+  color: var(--pst-color-primary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: auto;
+}
+
+.home-route > span {
+  margin-left: 0.3rem;
+}
+
+.home-workflow a:hover .home-route, .home-resource:hover .home-route {
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+}
+
+.home-resources {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.2rem;
+  margin: 1.4rem 0 3rem;
+}
+
+.home-resource, .home-resource:visited {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border: 1px solid var(--pst-color-border);
+  padding: 1.35rem;
+  border-radius: 10px;
+  color: var(--pst-color-text-base);
+  text-decoration: none;
+}
+
+.home-resource h3 {
+  font-size: 1.1rem;
+  line-height: 1.25;
+  font-weight: 620;
+  letter-spacing: -0.035em;
+  margin: 1.1rem 0 0.8rem;
+}
+
+.home-resource p {
+  font-size: 0.84rem;
+  color: var(--pst-color-text-muted);
+  line-height: 1.75;
+  margin-bottom: 1.25rem;
+  max-width: 34ch;
+}
+
+.home-resource:hover, .home-resource:visited:hover {
+  color: var(--pst-color-text-base);
+  text-decoration: none;
+  border-color: var(--pst-color-primary);
+}
+
+/* Use one bound theme control per sidebar, only when that sidebar is hidden. */
+#pst-header {
+  display: none;
+}
+
+.nexus-mobile-header {
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+}
+
+.nexus-mobile-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-left: auto;
+}
+
+#pst-header .sidebar-toggle {
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 1199.98px) {
+  #pst-header {
+    display: flex;
+  }
+  #pst-header .secondary-toggle {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 991.98px) {
+  #pst-header .primary-toggle {
+    display: inline-flex;
+  }
+}
+
+.bd-article details {
+  margin: 1rem 0;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--pst-color-border);
+  border-radius: 8px;
+}
+
+.bd-article summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 550;
+}
+
+.bd-article details[open] > summary {
+  margin-bottom: 1rem;
+}
+
+.bd-article details > :last-child {
+  margin-bottom: 0;
+}
+
+/* A visible focus outline is retained on every navigation and resource link. */
+a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible {
+  outline: 2px solid var(--pst-color-primary);
+  outline-offset: 4px;
+}
+
+.home-workflow > a:focus-visible, .home-resource:focus-visible {
+  border-radius: 6px;
+}
+
+@media (min-width: 1200px) {
+  .bd-sidebar-primary {
+    padding-left: 1.1rem;
+    padding-right: 1.1rem;
+  }
+  .bd-article {
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .bd-article {
+    padding-top: 1.1rem;
+  }
+  .bd-article h2.home-title {
+    font-size: clamp(2.5rem, 6vw, 4rem);
+  }
+  .bd-sidebar-primary .bd-sidenav li > a {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+  }
+}
+
+@media (max-width: 650px) {
+  .bd-article h1 {
+    font-size: 2rem;
+  }
+  .bd-article h2.home-title {
+    font-size: clamp(2.1rem, 7.6vw, 3.3rem);
+  }
+  .bd-article h2 {
+    font-size: 1.35rem;
+    margin-top: 2.4rem;
+  }
+  .home-intro {
+    padding-top: 0.6rem;
+    padding-bottom: 1.9rem;
+  }
+  .home-lead {
+    font-size: 0.94rem;
+  }
+  .home-terrain-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 1.3rem;
+  }
+  .home-workflow, .home-resources {
+    grid-template-columns: 1fr;
+    gap: 1.4rem;
+  }
+  .home-workflow > a {
+    padding-top: 1rem;
+  }
+  .home-workflow h3 {
+    font-size: 1.15rem;
+    margin-top: 0.7rem;
+  }
+  .home-workflow p, .home-resource p {
+    font-size: 0.87rem;
+  }
+  .home-resource {
+    padding: 1.5rem;
+  }
+  .home-resource p {
+    max-width: none;
+  }
+  .bd-article .highlight pre {
+    font-size: 0.74rem;
+    padding: 1rem;
+  }
+  .bd-article table {
+    font-size: 0.79rem;
+  }
+  .bd-article table th, .bd-article table td {
+    padding: 0.65rem 0.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-terrain-column img:hover {
+    transform: none;
+  }
+  html {
+    scroll-behavior: auto !important;
+  }
+  *, *::before, *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}

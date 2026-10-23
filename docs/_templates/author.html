@@ -1,0 +1,5 @@
+{% if author %}
+<p class="component-author">
+  {{ translate('By') }} <a href="{{ author_url | e }}">{{ author | e }}</a>
+</p>
+{% endif %}

@@ -1,0 +1,49 @@
+cff-version: 1.2.0
+message: If you use this software, please cite the NEXUS paper below.
+type: software
+title: NEXUS
+url: https://nexus-humanoid.github.io/
+authors:
+- family-names: Miao
+  given-names: Xiangyu
+- family-names: Wu
+  given-names: Junsong
+- family-names: Shi
+  given-names: Jiyuan
+- family-names: Xie
+  given-names: Weiji
+- family-names: Han
+  given-names: Jinrui
+- family-names: Wang
+  given-names: Xingyi
+- family-names: Zhang
+  given-names: Weinan
+- family-names: Bai
+  given-names: Chenjia
+- family-names: Li
+  given-names: Xuelong
+preferred-citation:
+  type: generic
+  title: 'NEXUS: Perceptive Whole-Body Control for Terrain-Adaptive Teleoperation'
+  authors:
+  - family-names: Miao
+    given-names: Xiangyu
+  - family-names: Wu
+    given-names: Junsong
+  - family-names: Shi
+    given-names: Jiyuan
+  - family-names: Xie
+    given-names: Weiji
+  - family-names: Han
+    given-names: Jinrui
+  - family-names: Wang
+    given-names: Xingyi
+  - family-names: Zhang
+    given-names: Weinan
+  - family-names: Bai
+    given-names: Chenjia
+  - family-names: Li
+    given-names: Xuelong
+  year: 2026
+  doi: 10.48550/arXiv.2609.39000
+  url: https://arxiv.org/abs/2609.39000
