@@ -2509,7 +2509,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "rsl-rl-lib", specifier = "==5.4.0" },
     { name = "ruff", marker = "extra == 'dev'" },
-    { name = "tensordict" },
+    { name = "tensordict", specifier = "==0.13.0" },
     { name = "terrain-motion-adaptation", editable = "terrain_motion_adaptation" },
     { name = "torch", specifier = ">=2.7.0", index = "https://download.pytorch.org/whl/cu128" },
     { name = "torchrunx", specifier = ">=0.3.4" },
