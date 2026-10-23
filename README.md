@@ -305,4 +305,5 @@ Third-party code and robot assets retain their own terms. In particular, the RSL
 We welcome questions, feedback, and opportunities for collaboration. Feel free to reach out:
 
 - **Xiangyu Miao**: [thedarkknight@sjtu.edu.cn](mailto:thedarkknight@sjtu.edu.cn) · [WeChat](https://nexus-humanoid.github.io/static/images/wechat-qr.jpg)
+- **Junsong Wu**: [jason-w@sjtu.edu.cn](mailto:jason-w@sjtu.edu.cn) or via Weixin (`Wujunsong0818`)
 - **Chenjia Bai** (Corresponding author): [baicj@chinatelecom.cn](mailto:baicj@chinatelecom.cn)
