@@ -234,8 +234,17 @@ def _collect_pack_source_protection(
         return resolved.parent, directory_info(path.parent)[1], files, {identity(p) for p in files}
 
     protected = {directory_info(base)[0]}
-    protected_files: set[Path] = set()
+    source_ancestors: set[Path] = set()
     protected_ids: set[tuple[int, int]] = set()
+
+    def index_ancestors(path: Path) -> None:
+        while path not in source_ancestors:
+            source_ancestors.add(path)
+            if path == path.parent:
+                break
+            path = path.parent
+
+    index_ancestors(directory_info(base)[0])
     for parent, links, files, identities in _pack_map(
         inspect,
         source_files.values(),
@@ -245,9 +254,10 @@ def _collect_pack_source_protection(
     ):
         protected.add(parent)
         protected.update(links)
-        protected_files.update(files)
+        for path in files | links | {parent}:
+            index_ancestors(path)
         protected_ids.update(identities)
-    return protected, protected_files, protected_ids
+    return protected, source_ancestors, protected_ids
 
 
 def _validate_pack_destination(
@@ -262,7 +272,7 @@ def _validate_pack_destination(
     """Protect inputs and distinct output fields; share registries across groups."""
     if _source_protection is None:
         _source_protection = _collect_pack_source_protection(base_dir, source_files)
-    protected, protected_files, protected_ids = _source_protection
+    protected, source_ancestors, protected_ids = _source_protection
     destination = Path(mem_path).expanduser().resolve()
     candidates = [destination]
     if destination.is_dir():
@@ -276,9 +286,10 @@ def _validate_pack_destination(
             visited.add(identity)
             candidates.extend((Path(directory) / name).resolve() for name in dirs + files)
     for target in candidates:
-        if any(
-            target.is_relative_to(source) or source.is_relative_to(target) for source in protected
-        ) or any(source.is_relative_to(target) for source in protected_files):
+        # Check both containment directions without walking the source index.
+        if target in source_ancestors or target in protected or any(
+            ancestor in protected for ancestor in target.parents
+        ):
             raise ValueError(
                 f"input and output paths overlap through a source or symlink: {target}"
             )
