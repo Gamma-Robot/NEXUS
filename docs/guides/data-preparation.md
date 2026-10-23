@@ -87,6 +87,11 @@ uv run python -m perceptive_bfm.scripts.data_process.pack_motions \
 ```
 
 Each terrain motion needs a flat counterpart with matching FPS and frame count.
+`--num-workers` controls concurrent discovery, source-path checks, motion
+validation and packing reads. These stages show progress separately. Reads
+use bounded prefetch; groups are written sequentially in a stable motion order.
+All groups pass source/output protection, data validation and flat-pairing
+checks before any packed group is written.
 
 Use a fresh output directory when changing the terrain groups, and keep it
 separate from the input directory.

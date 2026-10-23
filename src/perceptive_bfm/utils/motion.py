@@ -10,8 +10,13 @@ import json
 import os
 import math
 import os.path as osp
-from collections.abc import Mapping, Sequence
+from collections import deque
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from functools import lru_cache
+from itertools import islice
 from pathlib import Path
+from typing import TypeVar
 
 import numpy as np
 import torch
@@ -20,6 +25,50 @@ from tqdm import tqdm
 
 META_FILENAME = "meta_motion.json"
 TENSORDICT_DIRNAME = "_tensordict"
+
+_T = TypeVar("_T")
+_U = TypeVar("_U")
+_SourceProtection = tuple[set[Path], set[Path], set[tuple[int, int]]]
+_SchemaCache = dict[tuple[Path, Path, tuple[str, ...]], tuple[list[str], list[int]]]
+
+
+def _pack_map(
+    function: Callable[[_T], _U],
+    items: Iterable[_T],
+    *,
+    total: int,
+    num_workers: int,
+    desc: str,
+) -> Iterator[_U]:
+    """Read concurrently in input order with bounded prefetch and visible waits."""
+    if num_workers < 1:
+        raise ValueError("num_workers must be at least 1")
+    with tqdm(total=total, desc=desc, unit="clip", dynamic_ncols=True) as progress:
+        if num_workers == 1:
+            for item in items:
+                result = function(item)
+                progress.update(1)
+                yield result
+            return
+        iterator = iter(items)
+        with ThreadPoolExecutor(max_workers=min(num_workers, max(1, total))) as executor:
+            pending = deque(
+                executor.submit(function, item) for item in islice(iterator, 2 * num_workers)
+            )
+            while pending:
+                future = pending.popleft()
+                while True:
+                    try:
+                        result = future.result(timeout=2.0)
+                        break
+                    except TimeoutError:
+                        if future.done():
+                            raise
+                        progress.refresh()
+                progress.update(1)
+                yield result
+                for item in islice(iterator, 1):
+                    pending.append(executor.submit(function, item))
 
 
 class MotionMinimalData(TensorClass):
@@ -75,39 +124,54 @@ def _validate_joint_names(joint_names: Sequence[str]) -> list[str]:
 
 
 def _load_motion(
-    path: Path, *, base_dir: str | Path, joint_names: Sequence[str]
+    path: Path,
+    *,
+    base_dir: str | Path,
+    joint_names: Sequence[str],
+    _schema_cache: _SchemaCache | None = None,
 ) -> tuple[np.ndarray, float]:
     """Validate one clip and map joint columns to the requested model order."""
     path = Path(os.path.abspath(path.expanduser()))
     base = Path(os.path.abspath(Path(base_dir).expanduser()))
-    if not base.is_dir() or not path.is_relative_to(base) or path == base:
+    if not path.is_relative_to(base) or path == base:
         raise ValueError(f"motion must be inside base_dir: {path} (base_dir={base})")
+    expected = _validate_joint_names(joint_names)
+    order = tuple(expected)
+    cache = {} if _schema_cache is None else _schema_cache
     directory = path.parent
-    while True:
+    visited = []
+    while (base, directory, order) not in cache:
+        if not visited and not base.is_dir():
+            raise ValueError(f"motion must be inside base_dir: {path} (base_dir={base})")
+        visited.append(directory)
         manifest_path = directory / "manifest.json"
         if manifest_path.is_file():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ValueError(f"failed to read manifest {manifest_path}: {exc}") from exc
+            if (
+                not isinstance(manifest, dict)
+                or type(manifest.get("version")) is not int
+                or manifest["version"] != 1
+            ):
+                raise ValueError(f"manifest version must be 1: {manifest_path}")
+            if not isinstance(manifest.get("joint_names"), list):
+                raise ValueError(f"manifest joint_names must be a list: {manifest_path}")
+            names = _validate_joint_names(manifest["joint_names"])
+            if set(names) != set(expected):
+                raise ValueError(
+                    f"joint_names mismatch in {manifest_path}: expected {expected}, got {names}"
+                )
+            columns = list(range(7)) + [7 + names.index(name) for name in expected]
+            cache[(base, directory, order)] = (names, columns)
             break
         if directory == base:
             raise FileNotFoundError(f"manifest.json not found between {path.parent} and {base}")
         directory = directory.parent
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"failed to read manifest {manifest_path}: {exc}") from exc
-    if (
-        not isinstance(manifest, dict)
-        or type(manifest.get("version")) is not int
-        or manifest["version"] != 1
-    ):
-        raise ValueError(f"manifest version must be 1: {manifest_path}")
-    if not isinstance(manifest.get("joint_names"), list):
-        raise ValueError(f"manifest joint_names must be a list: {manifest_path}")
-    names = _validate_joint_names(manifest["joint_names"])
-    expected = _validate_joint_names(joint_names)
-    if set(names) != set(expected):
-        raise ValueError(
-            f"joint_names mismatch in {manifest_path}: expected {expected}, got {names}"
-        )
+    names, columns = cache[(base, directory, order)]
+    for ancestor in visited:
+        cache[(base, ancestor, order)] = (names, columns)
     with np.load(path, allow_pickle=False) as data:
         if len(data.files) != 2 or set(data.files) != {"qpos", "fps"}:
             raise ValueError(f"motion must contain only qpos and fps: {path}")
@@ -123,8 +187,67 @@ def _load_motion(
     norms = np.linalg.norm(qpos[:, 3:7].astype(np.float64), axis=1)
     if np.any(np.abs(norms - 1.0) > 1e-3):
         raise ValueError(f"root quaternion must be unit length within 1e-3 (wxyz): {path}")
-    columns = list(range(7)) + [7 + names.index(name) for name in expected]
     return qpos[:, columns], float(rate)
+
+
+def _collect_pack_source_protection(
+    base_dir: str | Path, source_files: Mapping[str, Path], *, num_workers: int = 1
+) -> _SourceProtection:
+    """Inspect source paths once for all groups, caching shared directory metadata."""
+    base = Path(os.path.abspath(Path(base_dir).expanduser()))
+
+    @lru_cache(maxsize=None)
+    def directory_info(directory: Path) -> tuple[Path, frozenset[Path]]:
+        if directory == directory.parent:
+            return directory.resolve(), frozenset()
+        parent, links = directory_info(directory.parent)
+        resolved = parent / directory.name
+        if resolved.is_symlink():
+            resolved = resolved.resolve()
+            if directory.is_relative_to(base):
+                links = links | {resolved}
+        return resolved, links
+
+    def resolve_file(path: Path) -> Path:
+        resolved = directory_info(path.parent)[0] / path.name
+        return resolved.resolve() if resolved.is_symlink() else resolved
+
+    @lru_cache(maxsize=None)
+    def identity(path: Path) -> tuple[int, int]:
+        status = path.stat()
+        return status.st_dev, status.st_ino
+
+    @lru_cache(maxsize=None)
+    def manifest_at(directory: Path) -> Path | None:
+        if not directory.is_relative_to(base):
+            return None
+        candidate = directory / "manifest.json"
+        if candidate.is_file():
+            return resolve_file(candidate)
+        return None if directory == base else manifest_at(directory.parent)
+
+    def inspect(path: Path):
+        path = Path(os.path.abspath(Path(path).expanduser()))
+        resolved = resolve_file(path)
+        manifest = manifest_at(path.parent)
+        files = {resolved} if manifest is None else {resolved, manifest}
+        return resolved.parent, directory_info(path.parent)[1], files, {identity(p) for p in files}
+
+    protected = {directory_info(base)[0]}
+    protected_files: set[Path] = set()
+    protected_ids: set[tuple[int, int]] = set()
+    for parent, links, files, identities in _pack_map(
+        inspect,
+        source_files.values(),
+        total=len(source_files),
+        num_workers=num_workers,
+        desc="checking source paths",
+    ):
+        protected.add(parent)
+        protected.update(links)
+        protected_files.update(files)
+        protected_ids.update(identities)
+    return protected, protected_files, protected_ids
 
 
 def _validate_pack_destination(
@@ -134,31 +257,12 @@ def _validate_pack_destination(
     source_files: Mapping[str, Path],
     destinations: dict[Path, Path] | None = None,
     destination_ids: dict[tuple[int, int], Path] | None = None,
+    _source_protection: _SourceProtection | None = None,
 ) -> None:
     """Protect inputs and distinct output fields; share registries across groups."""
-    base = Path(os.path.abspath(Path(base_dir).expanduser()))
-    protected = {base.resolve()}
-    protected_files = set()
-    checked = set()
-    for path in source_files.values():
-        path = Path(os.path.abspath(Path(path).expanduser()))
-        protected.add(path.resolve().parent)
-        protected_files.add(path.resolve())
-        directory = path.parent
-        while directory.is_relative_to(base):
-            manifest = directory / "manifest.json"
-            if manifest.is_file():
-                protected_files.add(manifest.resolve())
-                break
-            if directory == base:
-                break
-            directory = directory.parent
-        directory = path.parent
-        while directory.is_relative_to(base) and directory not in checked:
-            checked.add(directory)
-            if directory.is_symlink():
-                protected.add(directory.resolve())
-            directory = directory.parent
+    if _source_protection is None:
+        _source_protection = _collect_pack_source_protection(base_dir, source_files)
+    protected, protected_files, protected_ids = _source_protection
     destination = Path(mem_path).expanduser().resolve()
     candidates = [destination]
     if destination.is_dir():
@@ -179,10 +283,6 @@ def _validate_pack_destination(
                 f"input and output paths overlap through a source or symlink: {target}"
             )
 
-    protected_ids = set()
-    for source in protected_files:
-        status = source.stat()
-        protected_ids.add((status.st_dev, status.st_ino))
     destinations = {} if destinations is None else destinations
     destination_ids = {} if destination_ids is None else destination_ids
     relative_targets = [".", META_FILENAME, TENSORDICT_DIRNAME] + [
@@ -263,11 +363,25 @@ def create_motion_dataset_from_files(
     base_dir: str | Path,
     joint_names: Sequence[str],
     storage_dtype: torch.dtype = torch.float32,
+    num_workers: int = 1,
+    _source_protection: _SourceProtection | None = None,
+    _schema_cache: _SchemaCache | None = None,
 ) -> None:
-    """Pack an already discovered mapping of relative source paths to files."""
+    """Pack discovered files with bounded parallel reads in sorted source order."""
     if not source_files:
         raise ValueError("source_files must contain at least one motion")
-    _validate_pack_destination(mem_path, base_dir=base_dir, source_files=source_files)
+    if num_workers < 1:
+        raise ValueError("num_workers must be at least 1")
+    if _source_protection is None:
+        _source_protection = _collect_pack_source_protection(
+            base_dir, source_files, num_workers=num_workers
+        )
+    _validate_pack_destination(
+        mem_path,
+        base_dir=base_dir,
+        source_files=source_files,
+        _source_protection=_source_protection,
+    )
     ordered_files = [
         (source_path, Path(source_files[source_path])) for source_path in sorted(source_files)
     ]
@@ -281,10 +395,23 @@ def create_motion_dataset_from_files(
     root_pos_chunks: list[torch.Tensor] = []
     root_quat_chunks: list[torch.Tensor] = []
     joint_pos_chunks: list[torch.Tensor] = []
+    schema_cache = {} if _schema_cache is None else _schema_cache
+
+    def load(item: tuple[str, Path]):
+        source_path, path = item
+        qpos, clip_fps = _load_motion(
+            path, base_dir=base_dir, joint_names=names, _schema_cache=schema_cache
+        )
+        return source_path, path, qpos, clip_fps
 
     cursor = 0
-    for source_path, path in tqdm(ordered_files, desc="pack"):
-        qpos, clip_fps = _load_motion(path, base_dir=base_dir, joint_names=names)
+    for source_path, path, qpos, clip_fps in _pack_map(
+        load,
+        ordered_files,
+        total=len(ordered_files),
+        num_workers=num_workers,
+        desc=f"packing {Path(mem_path).name}",
+    ):
         if fps is None:
             fps = clip_fps
         elif clip_fps != fps:
@@ -309,14 +436,24 @@ def create_motion_dataset_from_files(
 
     assert fps is not None  # source_files is non-empty
 
-    data = MotionMinimalData(
-        root_pos_w=torch.cat(root_pos_chunks, dim=0),
-        root_quat_w=torch.cat(root_quat_chunks, dim=0),
-        joint_pos=torch.cat(joint_pos_chunks, dim=0),
-        batch_size=[cursor],
-    )
-    os.makedirs(mem_path, exist_ok=True)
-    data.memmap(osp.join(mem_path, TENSORDICT_DIRNAME))
+    with tqdm(
+        total=4, desc=f"writing {Path(mem_path).name}", unit="step", dynamic_ncols=True
+    ) as progress:
+        root_pos_w = torch.cat(root_pos_chunks, dim=0)
+        progress.update(1)
+        root_quat_w = torch.cat(root_quat_chunks, dim=0)
+        progress.update(1)
+        joint_pos = torch.cat(joint_pos_chunks, dim=0)
+        progress.update(1)
+        data = MotionMinimalData(
+            root_pos_w=root_pos_w,
+            root_quat_w=root_quat_w,
+            joint_pos=joint_pos,
+            batch_size=[cursor],
+        )
+        os.makedirs(mem_path, exist_ok=True)
+        data.memmap(osp.join(mem_path, TENSORDICT_DIRNAME))
+        progress.update(1)
 
     meta = {
         "num_motions": len(ordered_files),

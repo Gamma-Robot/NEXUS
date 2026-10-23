@@ -16,12 +16,16 @@ import os.path as osp
 from collections.abc import Sequence
 from pathlib import Path
 
-from perceptive_bfm.utils.motion_tree import discover_grouped_motion_files
+from tqdm import tqdm
+
 from perceptive_bfm.utils.motion import (
+    _collect_pack_source_protection,
     _load_motion,
+    _pack_map,
     _validate_pack_destination,
     create_motion_dataset_from_files,
 )
+from perceptive_bfm.utils.motion_tree import discover_grouped_motion_files
 
 
 def _resolve_joint_names() -> list[str]:
@@ -94,47 +98,81 @@ def pack_perceptive_dataset(
     }
     destinations = {}
     destination_ids = {}
-    for group_name in group_files:
+    source_protection = _collect_pack_source_protection(
+        root, all_files, num_workers=num_workers
+    )
+    for group_name in tqdm(
+        group_files, desc="checking output paths", unit="group", dynamic_ncols=True
+    ):
         _validate_pack_destination(
             Path(output_dir) / group_name,
             base_dir=root,
             source_files=all_files,
             destinations=destinations,
             destination_ids=destination_ids,
+            _source_protection=source_protection,
         )
     # Validate every group before writes; a late bad clip cannot leave earlier packs.
-    lengths = {}
+    lengths = {group: {} for group in group_files}
+    schema_cache = {}
+
+    def validate(item):
+        group_name, name, path = item
+        qpos, rate = _load_motion(
+            path,
+            base_dir=root / group_name,
+            joint_names=joint_names,
+            _schema_cache=schema_cache,
+        )
+        return group_name, name, len(qpos), rate
+
+    items = (
+        (group_name, name, path)
+        for group_name, files in group_files.items()
+        for name, path in files.items()
+    )
     fps = None
-    for group_name, files in group_files.items():
-        lengths[group_name] = {}
-        for name, path in files.items():
-            qpos, rate = _load_motion(path, base_dir=root / group_name, joint_names=joint_names)
-            lengths[group_name][name] = len(qpos)
-            if fps is None:
-                fps = rate
-            if rate != fps:
-                raise ValueError(f"fps mismatch in {path}: dataset fps={fps}, clip fps={rate}")
-            if target_fps is not None and rate != target_fps:
-                raise ValueError(
-                    f"Group '{group_name}' fps={rate} does not match --target-fps={target_fps}"
-                )
+    for group_name, name, length, rate in _pack_map(
+        validate,
+        items,
+        total=len(all_files),
+        num_workers=num_workers,
+        desc="validating motions",
+    ):
+        lengths[group_name][name] = length
+        if fps is None:
+            fps = rate
+        if rate != fps:
+            path = group_files[group_name][name]
+            raise ValueError(f"fps mismatch in {path}: dataset fps={fps}, clip fps={rate}")
+        if target_fps is not None and rate != target_fps:
+            raise ValueError(
+                f"Group '{group_name}' fps={rate} does not match --target-fps={target_fps}"
+            )
     flat = lengths["flat"]
-    for group_name, group_lengths in lengths.items():
-        for name, length in group_lengths.items():
-            if name not in flat:
-                raise ValueError(
-                    f"Group '{group_name}' motion '{name}' is not present on the flat group"
-                )
-            if length != flat[name]:
-                raise ValueError(
-                    f"Paired frame count mismatch for {group_name}/{name}: {length} vs flat {flat[name]}"
-                )
+    with tqdm(
+        total=len(all_files), desc="checking flat pairing", unit="clip", dynamic_ncols=True
+    ) as progress:
+        for group_name, group_lengths in lengths.items():
+            for name, length in group_lengths.items():
+                if name not in flat:
+                    raise ValueError(
+                        f"Group '{group_name}' motion '{name}' is not present on the flat group"
+                    )
+                if length != flat[name]:
+                    raise ValueError(
+                        f"Paired frame count mismatch for {group_name}/{name}: {length} vs flat {flat[name]}"
+                    )
+                progress.update(1)
     for group_name in group_files:
         create_motion_dataset_from_files(
             group_files[group_name],
             osp.join(output_dir, group_name),
             base_dir=root / group_name,
             joint_names=joint_names,
+            num_workers=num_workers,
+            _source_protection=source_protection,
+            _schema_cache=schema_cache,
         )
     return list(group_files)
 
@@ -159,7 +197,7 @@ def main() -> None:
         "--num-workers",
         type=int,
         default=1,
-        help="Parallel motion-root discovery threads (default: 1)",
+        help="Threads for motion discovery, source checks, validation and packing reads (default: 1)",
     )
     args = ap.parse_args()
     group_names = pack_perceptive_dataset(
