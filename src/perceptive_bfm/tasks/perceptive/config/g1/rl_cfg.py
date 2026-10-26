@@ -1,7 +1,11 @@
 """PPO configurations for perceptive G1 control."""
 
-from mjlab.rl.config import RslRlModelCfg, RslRlOnPolicyRunnerCfg
-from perceptive_bfm.rl.config import RslRlPpoAlgorithmCfg, RslRlSymmetryCfg
+from mjlab.rl.config import RslRlModelCfg
+from perceptive_bfm.rl.config import (
+    RslRlOnPolicyRunnerCfg,
+    RslRlPpoAlgorithmCfg,
+    RslRlSymmetryCfg,
+)
 from perceptive_bfm.tasks.perceptive.mdp import symmetry_terms
 
 SYMMETRY_CFG = RslRlSymmetryCfg(

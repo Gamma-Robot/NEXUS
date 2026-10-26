@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable, Literal
 
+import mjlab.rl.config as mjlab_rl_config
 from mjlab.rl.config import RslRlBaseRunnerCfg, RslRlModelCfg
 
 
@@ -100,3 +101,10 @@ class RslRlPpoAlgorithmCfg:
     behavior is then identical to PPO without symmetry support."""
     class_name: str = "perceptive_bfm_rl.algorithms:PPO"
     """The algorithm class name resolved by RSL-RL."""
+
+
+@dataclass
+class RslRlOnPolicyRunnerCfg(mjlab_rl_config.RslRlOnPolicyRunnerCfg):
+    """On-policy runner configuration using the local PPO algorithm config."""
+
+    algorithm: RslRlPpoAlgorithmCfg = field(default_factory=RslRlPpoAlgorithmCfg)
