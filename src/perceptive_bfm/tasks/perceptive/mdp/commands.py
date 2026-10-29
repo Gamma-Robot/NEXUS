@@ -168,9 +168,9 @@ class MotionCommand(CommandTerm):
         self._adaptive_skip_visit_once = torch.zeros(
             self.num_envs, dtype=torch.bool, device=self.device
         )
-        # Motion end normally resamples silently without a done signal. An explicit
-        # counter lets evaluators detect completion even when the next sampled pair
-        # has the same group and motion ids (for example a one-motion group).
+        # Natural resampling preserves the environment episode; algorithm boundaries
+        # are reported separately in extras. The counter also detects completion
+        # when the next sampled pair has the same group and motion ids.
         self.natural_completion_counts = torch.zeros(
             self.num_envs, dtype=torch.long, device=self.device
         )
@@ -1677,6 +1677,12 @@ class MotionCommand(CommandTerm):
             # Command updates run after the environment's forward pass. Refresh
             # the new pose before relative targets, ground queries and cameras read it.
             self._env.sim.forward()
+            # A teleport starts new observation/action/sensor histories while the
+            # environment's reward and episode-length window continues unchanged.
+            self._env.observation_manager.reset(env_ids)
+            self._env.action_manager.reset(env_ids)
+            for sensor in self._env.scene.sensors.values():
+                sensor.reset(env_ids)
         return env_ids
 
     def _resample_command(
@@ -1778,17 +1784,29 @@ class MotionCommand(CommandTerm):
 
         self.robot.reset(env_ids=env_ids)
 
-    def _update_adaptive_sampling(self) -> None:
+    def _update_adaptive_sampling(self) -> torch.Tensor:
         """Account for this manager update, advance phases, then consume reset skips."""
         self._accumulate_adaptive_visits(consume_skips=False)
-        self._advance_time_steps()
+        env_ids = self._advance_time_steps()
         self._adaptive_skip_visit_once[:] = False
+        return env_ids
 
     def _update_command(self):
         if self.cfg.sampling_mode == "adaptive":
-            self._update_adaptive_sampling()
+            completed_ids = self._update_adaptive_sampling()
         else:
-            self._advance_time_steps()
+            completed_ids = self._advance_time_steps()
+
+        # Publish a fresh mask each update so consumers cannot retain a stale boundary.
+        # Ordinary resets already end the training trajectory, including when the
+        # newly sampled short clip also completes during this command update.
+        segment_truncations = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        segment_truncations[completed_ids] = True
+        # The first env.reset() precedes creation of reset_buf in env.step().
+        reset_buf = getattr(self._env, "reset_buf", None)
+        if reset_buf is not None:
+            segment_truncations &= ~reset_buf
+        self._env.extras["segment_truncations"] = segment_truncations
 
         # Refill the sliding-window cache for every env whose phase (or its
         # future-lookahead window) has walked outside the cached range. No-op for

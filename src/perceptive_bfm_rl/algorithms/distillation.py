@@ -142,6 +142,10 @@ class Distillation:
         """Record one environment step and update the normalizers."""
         # Update the normalizers
         self.student.update_normalization(obs)
+        # Reset sequence memory at training boundaries without changing logger dones.
+        if "segment_truncations" in extras:
+            segments = extras["segment_truncations"].to(device=self.device, dtype=torch.bool)
+            dones = (dones.bool() | segments).to(dtype=dones.dtype)
         # Record the rewards and dones
         self.transition.rewards = rewards
         self.transition.dones = dones

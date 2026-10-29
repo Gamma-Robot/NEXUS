@@ -166,6 +166,19 @@ class PPO:
         if self.rnd:
             self.rnd.update_normalization(obs)
 
+        # Training segments may end while the environment's logging window continues.
+        # Keep the runner's tensors unchanged: it passes them to the logger next.
+        time_outs = extras.get("time_outs")
+        if "segment_truncations" in extras:
+            segments = extras["segment_truncations"].to(device=self.device, dtype=torch.bool)
+            segments = segments & ~dones.bool()
+            dones = (dones.bool() | segments).to(dtype=dones.dtype)
+            time_outs = (
+                segments
+                if time_outs is None
+                else time_outs.to(device=self.device, dtype=torch.bool) | segments
+            )
+
         # Record the rewards and dones
         # Note: We clone here because later on we bootstrap the rewards based on timeouts
         self.transition.rewards = rewards.clone()
@@ -179,9 +192,9 @@ class PPO:
             self.transition.rewards += self.intrinsic_rewards
 
         # Bootstrapping on time outs
-        if "time_outs" in extras:
+        if time_outs is not None:
             self.transition.rewards += self.gamma * torch.squeeze(
-                self.transition.values * extras["time_outs"].unsqueeze(1).to(self.device),  # type: ignore
+                self.transition.values * time_outs.unsqueeze(1).to(self.device),  # type: ignore
                 1,
             )
 
